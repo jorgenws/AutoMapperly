@@ -1,4 +1,6 @@
-﻿using Riok.Mapperly.Abstractions;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Riok.Mapperly.Abstractions;
+using AutoMapperly.DI;
 
 namespace AutoMapperly.Tests
 {
@@ -20,18 +22,21 @@ namespace AutoMapperly.Tests
         {
             var test = new Test("Vogon", 42);
 
-            IMapper<Test, TestDto> mapper = new TestMapper();
+            IMap<Test, TestDto> mapper = new TestMapper();
 
             var dto = mapper.Map(test);
 
             Assert.Equal(test.Text, dto.Text);
             Assert.Equal(test.Value, dto.Value);
         }
-    }
 
-    public interface Map2<TIn, TOut>
-    {
-        TOut Map(TIn input);
+        [Fact]
+        public void Test3()
+        {
+            var serviceCollection = new ServiceCollection();
+
+            serviceCollection.AddMappers();
+        }
     }
 
     public record TestDto(string Text, int Value);

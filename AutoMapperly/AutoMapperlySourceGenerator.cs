@@ -6,7 +6,6 @@ using System.Linq;
 
 namespace AutoMapperly
 {
-
     [Generator]
     public class AutoMapperlySourceGenerator : IIncrementalGenerator
     {
@@ -27,17 +26,17 @@ namespace AutoMapperly
                 foreach (var mapperInfo in mapperInfoList)
                 {
                     var source = $@"
-            namespace {mapperInfo.NamespaceName}
-            {{
-            public partial class {mapperInfo.ClassName} : IMapper<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
-            {{
-                public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
-            {{
-                    return {mapperInfo.MethodName}(input);
-            }}
-            }}
-            }}";
-                    spc.AddSource($"{mapperInfo.ClassName}_{mapperInfo.MethodName}_Mapperly.g.cs", source);
+namespace {mapperInfo.NamespaceName}
+{{
+    public partial class {mapperInfo.ClassName} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
+    {{
+        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
+        {{
+            return {mapperInfo.MethodName}(input);
+        }}
+    }}
+}}";
+                    spc.AddSource($"{mapperInfo.ClassName}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
                 }
             });
             

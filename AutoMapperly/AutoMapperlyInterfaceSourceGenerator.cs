@@ -9,10 +9,10 @@ namespace AutoMapperly
         {
             context.RegisterPostInitializationOutput(ctx =>
             {
-                ctx.AddSource("IMapper.g.cs", @"
+                ctx.AddSource("IMap.AutoMapperly.g.cs", @"
 namespace AutoMapperly
 {
-    public interface IMapper<TInput, TOutput>
+    public interface IMap<TInput, TOutput>
     {
         TOutput Map(TInput input);
     }
