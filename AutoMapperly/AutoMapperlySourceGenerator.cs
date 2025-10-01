@@ -6,25 +6,6 @@ using System.Linq;
 
 namespace AutoMapperly
 {
-    [Generator]
-    public class AutoMapperlyInterfaceSourceGenerator : IIncrementalGenerator
-    {
-        public void Initialize(IncrementalGeneratorInitializationContext context)
-        {
-            context.RegisterPostInitializationOutput(ctx =>
-            {
-                ctx.AddSource("IMapper.g.cs", @"
-namespace AutoMapperly
-{
-    public interface IMapper<TInput, TOutput>
-    {
-        TOutput Map(TInput input);
-    }
-}"
-                );
-            });
-        }
-    }
 
     [Generator]
     public class AutoMapperlySourceGenerator : IIncrementalGenerator
@@ -71,6 +52,13 @@ namespace AutoMapperly
 
             var classDeclaration = ctx.Node as ClassDeclarationSyntax;
             var classSymbol = ctx.SemanticModel.GetDeclaredSymbol(classDeclaration) as INamedTypeSymbol;
+
+            if (classSymbol.IsStatic)
+            {
+                // Skip static classes for instance mapper generation
+                // There will be a seperate implementation for static classes
+                return null;
+            }
 
             var namespaceName = classSymbol.ContainingNamespace?.ToDisplayString();
 
