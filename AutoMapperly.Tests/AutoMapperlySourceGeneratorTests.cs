@@ -33,10 +33,9 @@ namespace AutoMapperly.Tests
         [Fact]
         public void AutoMapperlySetsUpMappersAndUsesIMapperToPickTheAppropriateMapper()
         {
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddMappers();
-
-            var provider = serviceCollection.BuildServiceProvider();
+            var provider = new ServiceCollection()
+                .AddMappers()
+                .BuildServiceProvider();
 
             var mapper = provider.GetRequiredService<IMapper<Test, TestDto>>();
 
