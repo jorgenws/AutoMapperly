@@ -7,7 +7,7 @@ namespace AutoMapperly.Tests
     public class AutoMapperlySourceGeneratorTests
     {
         [Fact]
-        public void Test1()
+        public void MapperlyWorksAsIntended()
         {
             var test = new Test("Vogon", 42);
 
@@ -18,11 +18,11 @@ namespace AutoMapperly.Tests
         }
 
         [Fact]
-        public void Test2()
+        public void AutoMapperlyInterfaceAddedToMapperlyClass()
         {
-            var test = new Test("Vogon", 42);
-
             IMap<Test, TestDto> mapper = new TestMapper();
+
+            var test = new Test("Vogon", 42);
 
             var dto = mapper.Map(test);
 
@@ -31,11 +31,21 @@ namespace AutoMapperly.Tests
         }
 
         [Fact]
-        public void Test3()
+        public void AutoMapperlySetsUpMappersAndUsesIMapperToPickTheAppropriateMapper()
         {
             var serviceCollection = new ServiceCollection();
-
             serviceCollection.AddMappers();
+
+            var provider = serviceCollection.BuildServiceProvider();
+
+            var mapper = provider.GetRequiredService<IMapper<Test, TestDto>>();
+
+            var test = new Test("Vogon", 42);
+
+            var dto = mapper.Map(test);
+
+            Assert.Equal(test.Text, dto.Text);
+            Assert.Equal(test.Value, dto.Value);
         }
     }
 

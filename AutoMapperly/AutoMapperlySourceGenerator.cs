@@ -2,6 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Riok.Mapperly.Abstractions;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 namespace AutoMapperly
@@ -11,19 +12,30 @@ namespace AutoMapperly
     {
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            var mapperInfos = context.SyntaxProvider
+            var mapperInfosProvider = context.SyntaxProvider
                 .CreateSyntaxProvider(
                     predicate: static (node, _) => node is ClassDeclarationSyntax cds && cds.AttributeLists.Count > 0,
                     transform: static (ctx, _) => Transform(ctx))
-                .Where(c => c is not null);
+                .Where(c => c is not null)
+                .Collect();
+
+            var hasDIProvider = context.CompilationProvider
+                .Select((compilation, _) => compilation.GetTypeByMetadataName("Microsoft.Extensions.DependencyInjection.IServiceCollection") != null);
+
+            var comboProvider = mapperInfosProvider.Combine(hasDIProvider);
 
             // Generate source code for each mapper info and add it to the compilation
-            context.RegisterSourceOutput(mapperInfos, (spc, mapperInfoList) =>
+            context.RegisterSourceOutput(comboProvider, (spc, providers) =>
             {
-                if (mapperInfoList == null || mapperInfoList.Count == 0)
-                    return;
+                (ImmutableArray<List<MapperInfo>> mapperInfos, bool hasDI) = providers;
 
-                foreach (var mapperInfo in mapperInfoList)
+                if (mapperInfos == null)
+                {
+                    return;
+                }
+
+                foreach (var innerMapperInfo in mapperInfos)
+                foreach (var mapperInfo in innerMapperInfo)
                 {
                     var source = $@"
 namespace {mapperInfo.NamespaceName}
@@ -37,6 +49,59 @@ namespace {mapperInfo.NamespaceName}
     }}
 }}";
                     spc.AddSource($"{mapperInfo.ClassName}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
+                }
+
+                //Service Collection
+                if (hasDI)
+                {
+
+                    spc.AddSource("IMapper.AutoMapperly.g.cs", $@"
+using Microsoft.Extensions.DependencyInjection; 
+namespace AutoMapperly;
+public interface IMapper<TIn,TOut>
+{{
+    TOut Map(TIn input);
+}}
+
+public class Mapper<TIn,TOut> : IMapper<TIn,TOut>
+{{
+    private readonly IServiceProvider _sp;
+
+    public Mapper(IServiceProvider sp)
+    {{
+        _sp = sp;
+    }}
+
+    public TOut Map(TIn input)
+    {{
+        var mapper = _sp.GetRequiredService<IMap<TIn,TOut>>();
+        return mapper.Map(input);
+    }}
+}}
+");
+
+                    var flattendMapperInfo = mapperInfos.SelectMany(m => m).ToList();
+
+                    spc.AddSource("AutoMapperlyExtension.AutoMapperly.g.cs", $@"
+using Microsoft.Extensions.DependencyInjection;
+
+namespace AutoMapperly.DI
+{{
+    public static class AutoMapperlyExtension
+    {{
+        public static IServiceCollection AddMappers(this IServiceCollection sc)
+        {{
+            sc.AddScoped(typeof(IMapper<,>), typeof(Mapper<,>));
+            {string.Join("\n", flattendMapperInfo
+                    .Select(m => $"sc.AddScoped<IMap<{m.InputTypeName},{m.OutputTypeName}>, {m.NamespaceName}.{m.ClassName}>();"))}
+
+            return sc;
+        }}
+    }}
+}}
+");
+
+
                 }
             });
             
