@@ -4,12 +4,38 @@ using Riok.Mapperly.Abstractions;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 
 namespace AutoMapperly
 {
     [Generator]
     public class AutoMapperlySourceGenerator : IIncrementalGenerator
     {
+        private static readonly string _imapper = $@"
+using Microsoft.Extensions.DependencyInjection; 
+namespace AutoMapperly;
+public interface IMapper<TIn,TOut>
+{{
+    TOut Map(TIn input);
+}}
+
+public class Mapper<TIn,TOut> : IMapper<TIn,TOut>
+{{
+    private readonly IServiceProvider _sp;
+
+    public Mapper(IServiceProvider sp)
+    {{
+        _sp = sp;
+    }}
+
+    public TOut Map(TIn input)
+    {{
+        var mapper = _sp.GetRequiredService<IMap<TIn,TOut>>();
+        return mapper.Map(input);
+    }}
+}}
+";
+
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
             var mapperInfosProvider = context.SyntaxProvider
@@ -37,7 +63,9 @@ namespace AutoMapperly
                 foreach (var innerMapperInfo in mapperInfos)
                 foreach (var mapperInfo in innerMapperInfo)
                 {
-                    var source = $@"
+                    if (mapperInfo.MapperType == MapperType.Instance)
+                    {
+                            var source = $@"
 namespace {mapperInfo.NamespaceName}
 {{
     public partial class {mapperInfo.ClassName} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
@@ -48,39 +76,25 @@ namespace {mapperInfo.NamespaceName}
         }}
     }}
 }}";
-                    spc.AddSource($"{mapperInfo.ClassName}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
+                        spc.AddSource($"{mapperInfo.ClassName}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
+                    }
                 }
 
                 //Service Collection
                 if (hasDI)
                 {
 
-                    spc.AddSource("IMapper.AutoMapperly.g.cs", $@"
-using Microsoft.Extensions.DependencyInjection; 
-namespace AutoMapperly;
-public interface IMapper<TIn,TOut>
-{{
-    TOut Map(TIn input);
-}}
+                    spc.AddSource("IMapper.AutoMapperly.g.cs", _imapper);
 
-public class Mapper<TIn,TOut> : IMapper<TIn,TOut>
-{{
-    private readonly IServiceProvider _sp;
-
-    public Mapper(IServiceProvider sp)
-    {{
-        _sp = sp;
-    }}
-
-    public TOut Map(TIn input)
-    {{
-        var mapper = _sp.GetRequiredService<IMap<TIn,TOut>>();
-        return mapper.Map(input);
-    }}
-}}
-");
-
-                    var flattendMapperInfo = mapperInfos.SelectMany(m => m).ToList();
+                    var sb = new StringBuilder();
+                    foreach (var mapperInfo in mapperInfos)
+                    foreach (var mi in mapperInfo)
+                    {
+                        if (mi.MapperType == MapperType.Instance)
+                        { 
+                                sb.AppendLine($"sc.AddScoped<IMap<{mi.InputTypeName},{mi.OutputTypeName}>, {mi.NamespaceName}.{mi.ClassName}>();"); 
+                        }
+                    }
 
                     spc.AddSource("AutoMapperlyExtension.AutoMapperly.g.cs", $@"
 using Microsoft.Extensions.DependencyInjection;
@@ -92,9 +106,7 @@ namespace AutoMapperly.DI
         public static IServiceCollection AddMappers(this IServiceCollection sc)
         {{
             sc.AddScoped(typeof(IMapper<,>), typeof(Mapper<,>));
-            {string.Join("\n", flattendMapperInfo
-                    .Select(m => $"sc.AddScoped<IMap<{m.InputTypeName},{m.OutputTypeName}>, {m.NamespaceName}.{m.ClassName}>();"))}
-
+            {sb}
             return sc;
         }}
     }}
@@ -117,13 +129,6 @@ namespace AutoMapperly.DI
             var classDeclaration = ctx.Node as ClassDeclarationSyntax;
             var classSymbol = ctx.SemanticModel.GetDeclaredSymbol(classDeclaration) as INamedTypeSymbol;
 
-            if (classSymbol.IsStatic)
-            {
-                // Skip static classes for instance mapper generation
-                // There will be a seperate implementation for static classes
-                return null;
-            }
-
             var namespaceName = classSymbol.ContainingNamespace?.ToDisplayString();
 
             var methods = classDeclaration.Members
@@ -134,17 +139,23 @@ namespace AutoMapperly.DI
                 .OfType<IMethodSymbol>()
                 .Where(m => m.IsPartialDefinition);
 
-            var mapperInfo = methodSymbols.Select(m =>
-            new MapperInfo {
+            var instanceMapperInfo = methodSymbols.Select(m =>
+            new MapperInfo
+            {
                 NamespaceName = namespaceName,
                 ClassName = classSymbol.Name,
                 MethodName = m.Name,
                 InputTypeName = m.Parameters.FirstOrDefault()?.Type.ToDisplayString(),
-                OutputTypeName = m.ReturnType.ToDisplayString()
-                }
+                OutputTypeName = m.ReturnType.ToDisplayString(),
+                MapperType = classSymbol.IsStatic ? 
+                             m.IsExtensionMethod ? 
+                                MapperType.Extension : 
+                                MapperType.Static : 
+                                MapperType.Instance
+            }
             ).ToList();
 
-            return mapperInfo;
+            return instanceMapperInfo;
         }
 
         private static bool IsMapperlyClass(GeneratorSyntaxContext ctx)
@@ -164,6 +175,14 @@ namespace AutoMapperly.DI
             public string MethodName { get; set; }
             public string InputTypeName { get; set; }
             public string OutputTypeName { get; set; }
+            public MapperType MapperType { get; set; }
+        }
+
+        public enum MapperType
+        {
+            Instance,
+            Static,
+            Extension
         }
     }
 }

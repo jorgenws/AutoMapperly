@@ -11,7 +11,7 @@ namespace AutoMapperly.Tests
         {
             var test = new Test("Vogon", 42);
 
-            var dto = new TestMapper().MapTestDto(test);
+            var dto = new TestMapper().MapTestToTestDto(test);
 
             Assert.Equal(test.Text, dto.Text);
             Assert.Equal(test.Value, dto.Value);
@@ -46,6 +46,23 @@ namespace AutoMapperly.Tests
             Assert.Equal(test.Text, dto.Text);
             Assert.Equal(test.Value, dto.Value);
         }
+
+        [Fact]
+        public void AutoMapperlyAddsInstanceVersionsOfStaticMappers()
+        {
+            var provider = new ServiceCollection()
+                .AddMappers()
+                .BuildServiceProvider();
+
+            var mapper = provider.GetRequiredService<IMapper<TestTwo, TestTwoDto>>();
+
+            var test = new TestTwo("Vogon", 42);
+
+            var dto = mapper.Map(test);
+
+            Assert.Equal(test.Text, dto.Text);
+            Assert.Equal(test.Value, dto.Value);
+        }
     }
 
     public record TestDto(string Text, int Value);
@@ -55,6 +72,16 @@ namespace AutoMapperly.Tests
     [Mapper]
     public partial class TestMapper
     {
-        public partial TestDto MapTestDto(Test test);
+        public partial TestDto MapTestToTestDto(Test test);
+    }
+
+    public record TestTwoDto(string Text, int Value);
+
+    public record TestTwo(string Text, int Value);
+
+    [Mapper]
+    public static partial class TestTwoMapper
+    {
+        public static partial TestTwoDto MapTestTwoToTestDto(TestTwo test);
     }
 }
