@@ -37,11 +37,11 @@ namespace AutoMapperly.Tests
                 .AddMappers()
                 .BuildServiceProvider();
 
-            var mapper = provider.GetRequiredService<IMapper<Test, TestDto>>();
+            var mapper = provider.GetRequiredService<IMapper>();
 
             var test = new Test("Vogon", 42);
 
-            var dto = mapper.Map(test);
+            var dto = mapper.Map<Test, TestDto>(test);
 
             Assert.Equal(test.Text, dto.Text);
             Assert.Equal(test.Value, dto.Value);
@@ -54,11 +54,11 @@ namespace AutoMapperly.Tests
                 .AddMappers()
                 .BuildServiceProvider();
 
-            var mapper = provider.GetRequiredService<IMapper<TestTwo, TestTwoDto>>();
+            var mapper = provider.GetRequiredService<IMapper>();
 
             var test = new TestTwo("Vogon", 42);
 
-            var dto = mapper.Map(test);
+            var dto = mapper.Map<TestTwo, TestTwoDto>(test);
 
             Assert.Equal(test.Text, dto.Text);
             Assert.Equal(test.Value, dto.Value);
@@ -71,7 +71,7 @@ namespace AutoMapperly.Tests
                 .AddMappers()
                 .BuildServiceProvider();
 
-            var mapper = provider.GetRequiredService<IMapper<TestThree, TestThreeDto>>();
+            var mapper = provider.GetRequiredService<IMapper>();
 
             var test = new TestThree
             {
@@ -79,7 +79,7 @@ namespace AutoMapperly.Tests
                 Value = 42
             };
 
-            var dto = mapper.Map(test);
+            var dto = mapper.Map<TestThree, TestThreeDto>(test);
 
             Assert.Equal(test.Text, dto.Text);
             Assert.Equal(test.Value, dto.Value);

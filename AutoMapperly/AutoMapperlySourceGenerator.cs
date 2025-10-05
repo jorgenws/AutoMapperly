@@ -14,12 +14,12 @@ namespace AutoMapperly
         private static readonly string _imapper = $@"
 using Microsoft.Extensions.DependencyInjection; 
 namespace AutoMapperly;
-public interface IMapper<TIn,TOut>
+public interface IMapper
 {{
-    TOut Map(TIn input);
+    TOut Map<TIn,TOut>(TIn input);
 }}
 
-public class Mapper<TIn,TOut> : IMapper<TIn,TOut>
+public class Mapper : IMapper
 {{
     private readonly IServiceProvider _sp;
 
@@ -28,7 +28,7 @@ public class Mapper<TIn,TOut> : IMapper<TIn,TOut>
         _sp = sp;
     }}
 
-    public TOut Map(TIn input)
+    public TOut Map<TIn,TOut>(TIn input)
     {{
         var mapper = _sp.GetRequiredService<IMap<TIn,TOut>>();
         return mapper.Map(input);
@@ -110,15 +110,13 @@ namespace AutoMapperly.DI
     {{
         public static IServiceCollection AddMappers(this IServiceCollection sc)
         {{
-            sc.AddScoped(typeof(IMapper<,>), typeof(Mapper<,>));
+            sc.AddScoped<IMapper, Mapper>();
             {sb}
             return sc;
         }}
     }}
 }}
 ");
-
-
                 }
             });
             
