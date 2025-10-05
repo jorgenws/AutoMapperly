@@ -67,50 +67,18 @@ public class Mapper<TIn,TOut> : IMapper<TIn,TOut>
                 {
                     if (mapperInfo.MapperType == MapperType.Instance)
                     {
-                        var source = $@"
-namespace {mapperInfo.NamespaceName}
-{{
-    public partial class {mapperInfo.ClassName} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
-    {{
-        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
-        {{
-            return {mapperInfo.MethodName}(input);
-        }}
-    }}
-}}";
+                        var source = GenerateInstanceMapper(mapperInfo);
                         spc.AddSource($"{mapperInfo.ClassName}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
                     }
                     if (mapperInfo.MapperType == MapperType.Static)
                     {
-                        var source = $@"
-namespace {mapperInfo.NamespaceName}
-{{
-    public partial class {mapperInfo.ClassName}{AutoMapperlyInstancePostFix} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
-    {{
-        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
-        {{
-            return {mapperInfo.ClassName}.{mapperInfo.MethodName}(input);
-        }}
-    }}
-}}
-";
+                        var source = GenerateStaticMapper(mapperInfo);
                         spc.AddSource($"{mapperInfo.ClassName}{AutoMapperlyInstancePostFix}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
                     }
                     if (mapperInfo.MapperType == MapperType.Extension)
                     {
-                            var source = $@"
-namespace {mapperInfo.NamespaceName}
-{{
-    public partial class {mapperInfo.ClassName}{AutoMapperlyInstancePostFix} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
-    {{
-        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
-        {{
-            return input.{mapperInfo.MethodName}();
-        }}
-    }}
-}}
-";
-                            spc.AddSource($"{mapperInfo.ClassName}{AutoMapperlyInstancePostFix}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
+                        var source = GenerateExtensionMapper(mapperInfo);
+                        spc.AddSource($"{mapperInfo.ClassName}{AutoMapperlyInstancePostFix}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
                     }
                 }
 
@@ -203,6 +171,53 @@ namespace AutoMapperly.DI
                     .GetAttributes()
                     .Any(a => a.AttributeClass?.Name == nameof(MapperAttribute))
                     ?? false;
+        }
+
+        private static string GenerateInstanceMapper(MapperInfo mapperInfo)
+        {
+            return $@"
+namespace {mapperInfo.NamespaceName}
+{{
+    public partial class {mapperInfo.ClassName} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
+    {{
+        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
+        {{
+            return {mapperInfo.MethodName}(input);
+        }}
+    }}
+}}";
+        }
+
+        private static string GenerateStaticMapper(MapperInfo mapperInfo)
+        {
+            return $@"
+namespace {mapperInfo.NamespaceName}
+{{
+    public partial class {mapperInfo.ClassName}{AutoMapperlyInstancePostFix} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
+    {{
+        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
+        {{
+            return {mapperInfo.ClassName}.{mapperInfo.MethodName}(input);
+        }}
+    }}
+}}
+";
+        }
+
+        private static string GenerateExtensionMapper(MapperInfo mapperInfo)
+        {
+            return $@"
+namespace {mapperInfo.NamespaceName}
+{{
+    public partial class {mapperInfo.ClassName}{AutoMapperlyInstancePostFix} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
+    {{
+        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
+        {{
+            return input.{mapperInfo.MethodName}();
+        }}
+    }}
+}}
+";
         }
 
         public class MapperInfo
