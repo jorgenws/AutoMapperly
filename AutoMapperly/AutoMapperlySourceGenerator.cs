@@ -36,6 +36,8 @@ public class Mapper<TIn,TOut> : IMapper<TIn,TOut>
 }}
 ";
 
+        private static readonly string AutoMapperlyInstancePostFix = "AutoMapperlyInstance";
+
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
             var mapperInfosProvider = context.SyntaxProvider
@@ -65,7 +67,7 @@ public class Mapper<TIn,TOut> : IMapper<TIn,TOut>
                 {
                     if (mapperInfo.MapperType == MapperType.Instance)
                     {
-                            var source = $@"
+                        var source = $@"
 namespace {mapperInfo.NamespaceName}
 {{
     public partial class {mapperInfo.ClassName} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
@@ -78,12 +80,43 @@ namespace {mapperInfo.NamespaceName}
 }}";
                         spc.AddSource($"{mapperInfo.ClassName}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
                     }
+                    if (mapperInfo.MapperType == MapperType.Static)
+                    {
+                        var source = $@"
+namespace {mapperInfo.NamespaceName}
+{{
+    public partial class {mapperInfo.ClassName}{AutoMapperlyInstancePostFix} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
+    {{
+        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
+        {{
+            return {mapperInfo.ClassName}.{mapperInfo.MethodName}(input);
+        }}
+    }}
+}}
+";
+                        spc.AddSource($"{mapperInfo.ClassName}{AutoMapperlyInstancePostFix}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
+                    }
+                    if (mapperInfo.MapperType == MapperType.Extension)
+                    {
+                            var source = $@"
+namespace {mapperInfo.NamespaceName}
+{{
+    public partial class {mapperInfo.ClassName}{AutoMapperlyInstancePostFix} : IMap<{mapperInfo.InputTypeName},{mapperInfo.OutputTypeName}>
+    {{
+        public {mapperInfo.OutputTypeName} Map({mapperInfo.InputTypeName} input)
+        {{
+            return input.{mapperInfo.MethodName}();
+        }}
+    }}
+}}
+";
+                            spc.AddSource($"{mapperInfo.ClassName}{AutoMapperlyInstancePostFix}_{mapperInfo.MethodName}_AutoMapperly.g.cs", source);
+                    }
                 }
 
                 //Service Collection
                 if (hasDI)
                 {
-
                     spc.AddSource("IMapper.AutoMapperly.g.cs", _imapper);
 
                     var sb = new StringBuilder();
@@ -93,6 +126,10 @@ namespace {mapperInfo.NamespaceName}
                         if (mi.MapperType == MapperType.Instance)
                         { 
                                 sb.AppendLine($"sc.AddScoped<IMap<{mi.InputTypeName},{mi.OutputTypeName}>, {mi.NamespaceName}.{mi.ClassName}>();"); 
+                        }
+                        if(mi.MapperType == MapperType.Static || mi.MapperType == MapperType.Extension)
+                        {
+                                sb.AppendLine($"sc.AddScoped<IMap<{mi.InputTypeName},{mi.OutputTypeName}>, {mi.NamespaceName}.{mi.ClassName}{AutoMapperlyInstancePostFix}>();");
                         }
                     }
 
@@ -147,7 +184,7 @@ namespace AutoMapperly.DI
                 MethodName = m.Name,
                 InputTypeName = m.Parameters.FirstOrDefault()?.Type.ToDisplayString(),
                 OutputTypeName = m.ReturnType.ToDisplayString(),
-                MapperType = classSymbol.IsStatic ? 
+                MapperType = m.IsStatic ? 
                              m.IsExtensionMethod ? 
                                 MapperType.Extension : 
                                 MapperType.Static : 
