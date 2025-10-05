@@ -37,7 +37,7 @@ When using ".AddMappers()" with ServiceCollection from Microsofts Dependency inj
 
 ---
 ## Notes
-I made this because it was fun and I saw an opportunity to try source generators. I think there might be scenarios where you can tighten you code by having a common interface for your mapping.
+I made this because it was fun and I saw an opportunity to try source generators. I do think there might be scenarios where you can tighten your code by having a common interface for your mapping.
 
 ```csharp
 
